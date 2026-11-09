@@ -59,12 +59,53 @@ public class ObjectsCreator {
                 "",
                 "",
                 "",
+                "18",
                 "1734454582187-9026385306105",
                 0,
                 "",
                 "",
                 "",
-                "");
+                "",
+                "",
+                "",
+                "71021"
+                );
+    }
+
+    public static UtilsRecords.CdrUssi getDefaultUssiCdr() {
+        return getDefaultUssiCdr("1734454582187-9026385306105");
+    }
+
+    public static UtilsRecords.CdrUssi getDefaultUssiCdr(String id) {
+        return new UtilsRecords.CdrUssi(
+                "1734454595605",
+                "1734454593830",
+                "1734454595603",
+                id,
+                "SS7",
+                "1",
+                "SIP",
+                "2",
+                "SENT",
+                "",
+                "1000",
+                "700000000",
+                "1",
+                "5977778883455",
+                "",
+                "",
+                "*123#",
+                "5055499393",
+                "1 ok, 2 continue 3 exit",
+                "END",
+                "1322888089",
+                "8",
+                "6",
+                "8",
+                "1734454582187-9026385306105",
+                "1",
+                ""
+        );
     }
 
     public static UtilsRecords.Cdr createCdrWithMessageId(String messageId) {
@@ -119,12 +160,17 @@ public class ObjectsCreator {
                 defaultCdr.totalSegment(),
                 defaultCdr.segmentSequence(),
                 defaultCdr.retryNumber(),
+                defaultCdr.profileId(),
                 defaultCdr.parentId(),
                 defaultCdr.broadcastId(),
                 defaultCdr.localTranslationType(),
                 defaultCdr.remoteTranslationType(),
                 defaultCdr.messagePriority(),
-                defaultCdr.optionalParameters());
+                defaultCdr.optionalParameters(),
+                defaultCdr.source(),
+                defaultCdr.destination(),
+                defaultCdr.mccMncDestination()
+        );
     }
 
     public static List<UtilsRecords.Cdr> createLargeCdrBatch(int size) {

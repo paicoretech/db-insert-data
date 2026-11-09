@@ -22,6 +22,9 @@ public class AppProperties {
     @Value("${application.mode:logs}")
     private String applicationMode;
 
+    @Value("${application.ussi.mode:logs}")
+    private String applicationUssiMode;
+
     @Value("${application.cdr.separator}")
     private String separator;
 
@@ -43,9 +46,30 @@ public class AppProperties {
     @Value("${application.cdr.message-length}")
     private int cdrMessageLength;
 
+    @Value("${application.ussi.cdr.message-length}")
+    private int ussiCdrMessageLength;
+
     @Value("${spring.kafka.bootstrap-servers}")
     private String kafkaBootstrapServers;
 
     @Value("${spring.kafka.listener.concurrency}")
     private int kafkaListenerConcurrency;
+
+    @Value("${spring.kafka.consumer.reconnect.backoff.ms:1000}")
+    private long kafkaConsumerReconnectBackoffMs;
+
+    @Value("${spring.kafka.consumer.reconnect.backoff.max.ms:10000}")
+    private long kafkaConsumerReconnectBackoffMaxMs;
+
+    @Value("${spring.kafka.consumer.session.timeout.ms:30000}")
+    private int kafkaConsumerSessionTimeoutMs;
+
+    @Value("${spring.kafka.consumer.heartbeat.interval.ms:10000}")
+    private int kafkaConsumerHeartbeatIntervalMs;
+
+    @Value("${spring.kafka.producer.reconnect.backoff.ms:1000}")
+    private long kafkaProducerReconnectBackoffMs;
+
+    @Value("${spring.kafka.producer.reconnect.backoff.max.ms:10000}")
+    private long kafkaProducerReconnectBackoffMaxMs;
 }

@@ -23,7 +23,12 @@ class CommonUtilsTest {
     void createStringCdrWhenMessageLengthIsMinusOneThenUseFullMessage() {
         UtilsRecords.Cdr cdr = ObjectsCreator.getDefaultCdr();
         String result = CommonUtils.createStringCdr(cdr, "|", -1);
-        assertTrue(result.contains("MESSAGE|1734454582187-9026385306105|mno-message-id|HTTP|3|Origination Network Name|SP|SS7|2|Destination Network Name|GW|1||SENT||1773|1775|0|60|1322888089|1|1|0987654321|1|1||73|0|8|22220|200|8|55566768|550e8400e29b41d4a716446655440000|730169999999212|55566768||22220|This is a long message, with this we can test the reduce process.|0||0|||||1734454582187-9026385306105"));
+        String[] fields = result.split("\\|", -1);
+        assertEquals("This is a long message, with this we can test the reduce process.", fields[41]);
+
+        UtilsRecords.CdrUssi ussiCdr = ObjectsCreator.getDefaultUssiCdr();
+        String ussiResult = CommonUtils.createStringUssiCdr(ussiCdr, "|", -1);
+        assertTrue(ussiResult.contains("1734454582187-9026385306105|SS7|1|SIP|2|SENT||1000|700000000|1|5977778883455|||*123#|5055499393|1 ok, 2 continue 3 exit|END|1322888089|8|6|8|1734454582187-9026385306105|1|"));
     }
 
     @Test
@@ -31,7 +36,12 @@ class CommonUtilsTest {
     void createStringCdrWhenMessageLengthIs20ThenTruncateMessage() {
         UtilsRecords.Cdr cdr = ObjectsCreator.getDefaultCdr();
         String result = CommonUtils.createStringCdr(cdr, "|", 20);
-        assertTrue(result.contains("MESSAGE|1734454582187-9026385306105|mno-message-id|HTTP|3|Origination Network Name|SP|SS7|2|Destination Network Name|GW|1||SENT||1773|1775|0|60|1322888089|1|1|0987654321|1|1||73|0|8|22220|200|8|55566768|550e8400e29b41d4a716446655440000|730169999999212|55566768||22220|This is a long messa|0||0|||||1734454582187-9026385306105"));
+        String[] fields = result.split("\\|", -1);
+        assertEquals("This is a long messa", fields[41]);
+
+        UtilsRecords.CdrUssi ussiCdr = ObjectsCreator.getDefaultUssiCdr();
+        String ussiResult = CommonUtils.createStringUssiCdr(ussiCdr, "|", 20);
+        assertTrue(ussiResult.contains("1734454582187-9026385306105|SS7|1|SIP|2|SENT||1000|700000000|1|5977778883455|||*123#|5055499393|1 ok, 2 continue 3 e|END|1322888089|8|6|8|1734454582187-9026385306105|1|"));
     }
 
     @Test
@@ -39,10 +49,16 @@ class CommonUtilsTest {
     void createStringCdrWhenMessageLengthIsZeroThenRemoveMessage() {
         UtilsRecords.Cdr cdr = ObjectsCreator.getDefaultCdr();
         String result = CommonUtils.createStringCdr(cdr, "|", 0);
-        assertTrue(result.contains("MESSAGE|1734454582187-9026385306105|mno-message-id|HTTP|3|Origination Network Name|SP|SS7|2|Destination Network Name|GW|1||SENT||1773|1775|0|60|1322888089|1|1|0987654321|1|1||73|0|8|22220|200|8|55566768|550e8400e29b41d4a716446655440000|730169999999212|55566768||22220||0||0|||||1734454582187-9026385306105"));
-        String[] fields = result.split("\\|");
-        String messageField = fields[39];
+        String[] fields = result.split("\\|", -1);
+        String messageField = fields[41];
         assertEquals("", messageField);
+
+        UtilsRecords.CdrUssi ussiCdr = ObjectsCreator.getDefaultUssiCdr();
+        String ussiResult = CommonUtils.createStringUssiCdr(ussiCdr, "|", 0);
+        assertTrue(ussiResult.contains("1734454582187-9026385306105|SS7|1|SIP|2|SENT||1000|700000000|1|5977778883455|||*123#|5055499393||END|1322888089|8|6|8|1734454582187-9026385306105|1|"));
+        String[] ussiFields = ussiResult.split("\\|");
+        String ussiMessageField = ussiFields[18];
+        assertEquals("", ussiMessageField);
     }
 
     @Test

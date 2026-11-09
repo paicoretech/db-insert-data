@@ -8,12 +8,14 @@ import org.paic.insertdata.component.BulkInserter;
 import org.paic.insertdata.component.DatabaseComponent;
 import org.paic.insertdata.component.ObjectsCreator;
 import org.paic.insertdata.util.AppProperties;
+import org.paic.insertdata.util.ProcessorType;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -44,10 +46,11 @@ class DatabaseModeProcessorTest {
                     assertEquals(1, list.size(), "Expected exactly one CDR");
                     return list.stream()
                             .findFirst()
+                            .map(c -> (UtilsRecords.Cdr) c)
                             .map(UtilsRecords.Cdr::messageId)
                             .map(id -> id.equals(cdr.messageId()))
                             .orElse(false);
-                })
+                }), eq(ProcessorType.MESSAGE_PROCESSOR)
         );
     }
 }

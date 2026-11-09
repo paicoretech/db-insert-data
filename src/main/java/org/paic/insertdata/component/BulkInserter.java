@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.paic.insertdata.config.DatabaseCondition;
 import org.paic.insertdata.util.AppProperties;
 import org.paic.insertdata.util.CommonUtils;
+import org.paic.insertdata.util.ProcessorType;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -20,9 +21,12 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * The BulkInserter class is responsible for inserting data in bulk to the database using the provided JdbcTemplate.
@@ -32,16 +36,22 @@ import java.util.List;
 @Repository
 @Conditional(DatabaseCondition.class)
 public class BulkInserter {
+    private static final List<String> CDR_EXTRA_COLUMNS = List.of("charging_date");
+
     private final JdbcTemplate jdbcTemplate;
     private final Field[] cdrCachedFiles;
     private final StringBuilder cdrSqlQuery;
+    private final Field[] cdrUssiCachedFiles;
+    private final StringBuilder cdrUssiSqlQuery;
     private final AppProperties appProperties;
 
     public BulkInserter(JdbcTemplate jdbcTemplate, AppProperties appProperties) {
         this.jdbcTemplate = jdbcTemplate;
         this.appProperties = appProperties;
-        this.cdrCachedFiles = getAnnotatedCdrsFields();
-        this.cdrSqlQuery = this.loadSqlQuery(new StringBuilder("INSERT INTO cdr ("), cdrCachedFiles);
+        this.cdrCachedFiles = getAnnotatedCdrsFields(ProcessorType.MESSAGE_PROCESSOR);
+        this.cdrSqlQuery = this.loadSqlQuery(new StringBuilder("INSERT INTO cdr ("), cdrCachedFiles, CDR_EXTRA_COLUMNS);
+        this.cdrUssiCachedFiles = getAnnotatedCdrsFields(ProcessorType.USSI_PROCESSOR);
+        this.cdrUssiSqlQuery = this.loadSqlQuery(new StringBuilder("INSERT INTO cdr_ussi ("), cdrUssiCachedFiles, List.of());
     }
 
     /**
@@ -51,10 +61,19 @@ public class BulkInserter {
      */
     @Async
     @Transactional
-    public void saveCdrBulk(List<UtilsRecords.Cdr> list) {
-        jdbcTemplate.batchUpdate(cdrSqlQuery.toString(), list, list.size(),
-                (ps, cdr) -> this.processRecordFields(ps, cdr, cdrCachedFiles)
-        );
+    public <T> void saveCdrBulk(List<T> list, ProcessorType processorType) {
+        if (ProcessorType.MESSAGE_PROCESSOR.equals(processorType)) {
+            jdbcTemplate.batchUpdate(cdrSqlQuery.toString(), list, list.size(),
+                    (ps, cdr) -> {
+                        this.processRecordFields(ps, cdr, cdrCachedFiles);
+                        this.setChargingDate(ps, (UtilsRecords.Cdr) cdr, cdrCachedFiles.length + 1);
+                    }
+            );
+        } else {
+            jdbcTemplate.batchUpdate(cdrUssiSqlQuery.toString(), list, list.size(),
+                    (ps, cdr) -> this.processRecordFields(ps, cdr, cdrUssiCachedFiles)
+            );
+        }
     }
 
     /**
@@ -62,18 +81,20 @@ public class BulkInserter {
      *
      * @param sql               the SQL query to be modified
      * @param objectCachedFields the fields to check for JSON property annotation
+     * @param extraColumns      the columns that are filled by this service and are not part of the record
      * @return the modified SQL query with the fields appended
      */
-    private StringBuilder loadSqlQuery(StringBuilder sql, Field[] objectCachedFields) {
+    private StringBuilder loadSqlQuery(StringBuilder sql, Field[] objectCachedFields, List<String> extraColumns) {
         for (Field field : objectCachedFields) {
             JsonProperty annotation = field.getAnnotation(JsonProperty.class);
             if (annotation != null) {
                 sql.append(annotation.value()).append(", ");
             }
         }
-        sql.deleteCharAt(sql.length() - 2); // remove last comma
+        extraColumns.forEach(column -> sql.append(column).append(", "));
+        sql.setLength(sql.length() - 2); // remove last comma
         sql.append(") VALUES ("); // add VALUES keyword
-        sql.append("?, ".repeat(objectCachedFields.length)); // add ? for each field
+        sql.append("?, ".repeat(objectCachedFields.length + extraColumns.size())); // add ? for each field
         sql.deleteCharAt(sql.length() - 2); // remove last comma
         sql.append(")"); // add closing parenthesis
 
@@ -85,10 +106,16 @@ public class BulkInserter {
      *
      * @return an array of fields annotated with @JsonProperty in the given class
      */
-    private Field[] getAnnotatedCdrsFields() {
-        return Arrays.stream(UtilsRecords.Cdr.class.getDeclaredFields())
-                .filter(field -> field.getAnnotation(JsonProperty.class) != null)
-                .toArray(Field[]::new);
+    private Field[] getAnnotatedCdrsFields(ProcessorType processorType) {
+        if (ProcessorType.MESSAGE_PROCESSOR.equals(processorType)) {
+            return Arrays.stream(UtilsRecords.Cdr.class.getDeclaredFields())
+                    .filter(field -> field.getAnnotation(JsonProperty.class) != null)
+                    .toArray(Field[]::new);
+        } else {
+            return Arrays.stream(UtilsRecords.CdrUssi.class.getDeclaredFields())
+                    .filter(field -> field.getAnnotation(JsonProperty.class) != null)
+                    .toArray(Field[]::new);
+        }
     }
 
     /**
@@ -122,7 +149,8 @@ public class BulkInserter {
      */
     private void setValueToPreparedStatement(Object object, PreparedStatement ps, Field field, int index) throws SQLException {
         try {
-            if (!(object instanceof UtilsRecords.Cdr)) {
+            boolean allowCdrType = object instanceof UtilsRecords.Cdr || object instanceof UtilsRecords.CdrUssi;
+            if (!allowCdrType) {
                 throw new IllegalArgumentException("The object must be an instance of Cdr");
             }
 
@@ -135,7 +163,9 @@ public class BulkInserter {
                 case "recordDate","submitDate","deliveryDate" -> setNotNullValue(ps, index, value, LocalDateTime.class);
                 case "dialogDuration","processingTime","remoteDialogId","localDialogId" -> setNullValueOrDefault(ps, index, value, Long.class);
                 case "localSpc","localSsn","remoteSpc","remoteSsn","registeredDelivery","totalSegment","segmentSequence","retryNumber","routingId",
-                     "dataCoding","addrSrcTon","addrSrcNpi","addrDstTon","addrDstNpi", "broadcastId" -> setNullValueOrDefault(ps, index, value, int.class);
+                     "dataCoding","addrSrcTon","addrSrcNpi","addrDstTon","addrDstNpi", "broadcastId", "ussdSsn", "hlrSsn",
+                     "mscSsn", "errorCode" -> setNullValueOrDefault(ps, index, value, int.class);
+                case "shortMessage" -> processUssiMessage(ps, index, value);
                 default -> setNullValueOrDefault(ps, index, value, String.class);
             }
         } catch (IllegalAccessException | NoSuchMethodException |
@@ -144,9 +174,42 @@ public class BulkInserter {
         }
     }
 
+    private void setChargingDate(PreparedStatement ps, UtilsRecords.Cdr cdr, int index) {
+        try {
+            Long epoch = parseEpoch(cdr.submitDate());
+            if (Objects.isNull(epoch)) {
+                epoch = parseEpoch(cdr.recordDate());
+            }
+            if (Objects.isNull(epoch)) {
+                ps.setNull(index, Types.TIMESTAMP_WITH_TIMEZONE);
+                return;
+            }
+            ps.setObject(index, OffsetDateTime.ofInstant(Instant.ofEpochMilli(epoch), ZoneOffset.UTC));
+        } catch (SQLException e) {
+            log.error("Error setting the charging date to PreparedStatement", e);
+        }
+    }
+
+    private Long parseEpoch(String value) {
+        if (Objects.isNull(value) || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     private void processMessage(PreparedStatement ps, int index, Object value) throws SQLException {
         String message = (String) value;
         message = CommonUtils.truncateMessage(message, appProperties.getCdrMessageLength());
+        setNotNullValue(ps, index, message, String.class);
+    }
+
+    private void processUssiMessage(PreparedStatement ps, int index, Object value) throws SQLException {
+        String message = (String) value;
+        message = CommonUtils.truncateMessage(message, appProperties.getUssiCdrMessageLength());
         setNotNullValue(ps, index, message, String.class);
     }
 

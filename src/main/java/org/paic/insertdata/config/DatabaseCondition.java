@@ -11,7 +11,15 @@ public class DatabaseCondition implements Condition {
     @Override
     public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
         String mode = context.getEnvironment().getProperty("application.mode");
-        return ApplicationMode.DATABASE.getValue().equalsIgnoreCase(mode)
+        boolean databaseInitiated = ApplicationMode.DATABASE.getValue().equalsIgnoreCase(mode)
                 || ApplicationMode.LOGS_DATABASE.getValue().equalsIgnoreCase(mode);
+
+        if (!databaseInitiated) {
+            mode = context.getEnvironment().getProperty("application.ussi.mode");
+            databaseInitiated = ApplicationMode.DATABASE.getValue().equalsIgnoreCase(mode)
+                    || ApplicationMode.LOGS_DATABASE.getValue().equalsIgnoreCase(mode);
+        }
+
+        return databaseInitiated;
     }
 }

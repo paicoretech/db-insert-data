@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.paic.insertdata.component.DatabaseComponent;
 import org.paic.insertdata.component.LogsComponent;
 import org.paic.insertdata.util.CommonUtils;
+import org.paic.insertdata.util.ProcessorType;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -30,6 +31,6 @@ public class LogsDatabaseModeProcessor {
         Flux<List<UtilsRecords.Cdr>> cdrFlux = CommonUtils.getCdrBatches(cdrListInRaw)
                 .publish().autoConnect(2);
         logsComponent.storeInLogFile(cdrFlux);
-        databaseComponent.storeInDatabase(cdrFlux);
+        databaseComponent.storeInDatabase(cdrFlux, ProcessorType.MESSAGE_PROCESSOR);
     }
 }

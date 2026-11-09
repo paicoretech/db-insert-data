@@ -73,11 +73,47 @@ public class CommonUtils {
                 cdr.totalSegment(),
                 cdr.segmentSequence(),
                 cdr.retryNumber(),
+                cdr.profileId(),
                 cdr.parentId(),
                 String.valueOf(cdr.broadcastId()),
                 cdr.localTranslationType(),
                 cdr.remoteTranslationType(),
-                Optional.ofNullable(cdr.optionalParameters()).orElse("")
+                cdr.messagePriority(),
+                Optional.ofNullable(cdr.optionalParameters()).orElse(""),
+                cdr.source(),
+                cdr.destination()
+        );
+    }
+
+    public static String createStringUssiCdr(UtilsRecords.CdrUssi cdr, String separator, int messageLength) {
+        return String.join(separator,
+                convertMillisecondsToDateTimeString(cdr.recordDate()),
+                convertMillisecondsToDateTimeString(cdr.submitDate()),
+                convertMillisecondsToDateTimeString(cdr.deliveryDate()),
+                cdr.id(),
+                cdr.originProtocol(),
+                cdr.originNetworkId(),
+                cdr.destProtocol(),
+                cdr.destNetworkId(),
+                cdr.status(),
+                cdr.comment(),
+                cdr.dialogDuration(),
+                cdr.processingTime(),
+                cdr.dataCoding(),
+                cdr.globalTitle(),
+                cdr.globalTitleIndicator(),
+                cdr.translationType(),
+                cdr.shortCode(),
+                cdr.msisdn(),
+                truncateMessage(cdr.shortMessage(), messageLength),
+                cdr.tcapMessageType(),
+                cdr.invokeId(),
+                cdr.ussdSsn(),
+                cdr.hlrSsn(),
+                cdr.mscSsn(),
+                cdr.parentId(),
+                cdr.events(),
+                cdr.errorCode()
         );
     }
 
@@ -110,6 +146,17 @@ public class CommonUtils {
                 .flux();
     }
 
+    public static Flux<List<UtilsRecords.CdrUssi>> getUssiCdrBatches(List<String> cdrListInRaw) {
+        return Flux.fromIterable(cdrListInRaw)
+                .map(cdrStr -> Converter.stringToObject(cdrStr, UtilsRecords.CdrUssi.class))
+                .collectSortedList(
+                        Comparator.comparing(
+                                UtilsRecords.CdrUssi::recordDate,
+                                Comparator.nullsLast(Comparator.naturalOrder())
+                        )
+                )
+                .flux();
+    }
 
     /**
      * Truncates message text based on the configured length.

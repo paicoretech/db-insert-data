@@ -265,6 +265,33 @@ class LogsComponentTest {
                 });
     }
 
+    @Test
+    @DisplayName("Store multiple USSI CDRs batch in log file")
+    void storeInLogFileWhenMultipleUSSICdrsThenLogAllAndVerifyBatchProcessingFlow() {
+        UtilsRecords.CdrUssi cdr1 = ObjectsCreator.getDefaultUssiCdr("1719421854353-11028072268459");
+        UtilsRecords.CdrUssi cdr2 = ObjectsCreator.getDefaultUssiCdr("1719421854354-11028072268460");
+        UtilsRecords.CdrUssi cdr3 = ObjectsCreator.getDefaultUssiCdr("1719421854355-11028072268461");
+
+        when(appProperties.getSeparator()).thenReturn("|");
+        when(appProperties.getUssiCdrMessageLength()).thenReturn(-1);
+
+        Flux<List<UtilsRecords.CdrUssi>> cdrFlux = Flux.just(List.of(cdr1, cdr2, cdr3));
+        logsComponent.storeInUssiLogFile(cdrFlux);
+
+        await().atMost(FIVE_SECONDS).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> {
+            assertFalse(listAppender.list.isEmpty(), "Expected batch CDR log entries but got none");
+
+            String loggedMessage = listAppender.list.getFirst().getFormattedMessage();
+
+            assertTrue(loggedMessage.contains("1719421854353-11028072268459"), "Batch log should contain first CDR messageId");
+            assertTrue(loggedMessage.contains("1719421854354-11028072268460"), "Batch log should contain second CDR messageId");
+            assertTrue(loggedMessage.contains("1719421854355-11028072268461"), "Batch log should contain third CDR messageId");
+
+            String[] logLines = loggedMessage.split(System.lineSeparator());
+            assertEquals(3, logLines.length, "Batch should contain exactly 3 CDR lines");
+        });
+    }
+
     private UtilsRecords.Cdr createCdrWithSpecialContent() {
         return ObjectsCreator.createCdrWithMessageId(ObjectsCreator.generateRealisticMessageId());
     }

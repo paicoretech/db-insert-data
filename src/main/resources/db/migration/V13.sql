@@ -1,0 +1,2 @@
+ALTER TABLE public.cdr
+    ADD COLUMN IF NOT EXISTS profile_id VARCHAR(50);

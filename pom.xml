@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.paicbd.smsc</groupId>
     <artifactId>insertdata</artifactId>
-    <version>3.1.0-SNAPSHOT</version>
+    <version>3.3.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>insert-data</name>
     <description>DB Insert Data Application by PAiC</description>
@@ -48,7 +48,7 @@
         <!-- Java version -->
         <java.version>21</java.version>
         <!-- Dependency versions -->
-        <smsc-utils.version>3.1.0-74</smsc-utils.version>
+        <smsc-utils.version>3.1.0-OPEN-36</smsc-utils.version>
         <redis.clients.version>5.0.2</redis.clients.version>
         <postgresql.version>42.7.2</postgresql.version>
         <webflux.version>3.4.2</webflux.version>

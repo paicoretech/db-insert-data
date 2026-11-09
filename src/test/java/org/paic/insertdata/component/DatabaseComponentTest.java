@@ -9,6 +9,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.paic.insertdata.util.AppProperties;
+import org.paic.insertdata.util.ProcessorType;
 import org.springframework.dao.DataAccessException;
 import reactor.core.publisher.Flux;
 
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -47,11 +49,11 @@ class DatabaseComponentTest {
         List<UtilsRecords.Cdr> cdrList = List.of(cdr);
         when(appProperties.getMaxRetries()).thenReturn(3);
 
-        databaseComponent.storeInDatabase(Flux.just(cdrList));
+        databaseComponent.storeInDatabase(Flux.just(cdrList), ProcessorType.MESSAGE_PROCESSOR);
 
         await().atMost(FIVE_SECONDS).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> {
             ArgumentCaptor<List<UtilsRecords.Cdr>> cdrCaptor = ArgumentCaptor.forClass(List.class);
-            verify(bulkInserter, times(1)).saveCdrBulk(cdrCaptor.capture());
+            verify(bulkInserter, times(1)).saveCdrBulk(cdrCaptor.capture(), eq(ProcessorType.MESSAGE_PROCESSOR));
 
             List<UtilsRecords.Cdr> capturedCdrs = cdrCaptor.getValue();
             assertEquals(1, capturedCdrs.size(), "Should store exactly one CDR");
@@ -75,14 +77,18 @@ class DatabaseComponentTest {
 
         when(appProperties.getMaxRetries()).thenReturn(3);
 
-        databaseComponent.storeInDatabase(Flux.just(cdrList));
+        databaseComponent.storeInDatabase(Flux.just(cdrList), ProcessorType.MESSAGE_PROCESSOR);
 
         await().atMost(FIVE_SECONDS).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> {
             ArgumentCaptor<List<UtilsRecords.Cdr>> cdrCaptor = ArgumentCaptor.forClass(List.class);
-            verify(bulkInserter, times(1)).saveCdrBulk(cdrCaptor.capture());
+            ArgumentCaptor<ProcessorType> processorTypeCaptor = ArgumentCaptor.forClass(ProcessorType.class);
+            verify(bulkInserter, times(1)).saveCdrBulk(cdrCaptor.capture(), processorTypeCaptor.capture());
 
             List<UtilsRecords.Cdr> capturedCdrs = cdrCaptor.getValue();
             assertEquals(3, capturedCdrs.size(), "Should store exactly three CDRs in batch");
+
+            ProcessorType processorType = processorTypeCaptor.getValue();
+            assertEquals(ProcessorType.MESSAGE_PROCESSOR, processorType);
 
             List<String> messageIds = capturedCdrs.stream()
                     .map(UtilsRecords.Cdr::messageId)
@@ -104,13 +110,11 @@ class DatabaseComponentTest {
         doThrow(new DataAccessException("First DB error") {})
                 .doThrow(new DataAccessException("Second DB error") {})
                 .doNothing()
-                .when(bulkInserter).saveCdrBulk(cdrList);
+                .when(bulkInserter).saveCdrBulk(cdrList, ProcessorType.MESSAGE_PROCESSOR);
 
-        databaseComponent.storeInDatabase(Flux.just(cdrList));
+        databaseComponent.storeInDatabase(Flux.just(cdrList), ProcessorType.MESSAGE_PROCESSOR);
 
-        await().atMost(FIVE_SECONDS).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> {
-            verify(bulkInserter, times(3)).saveCdrBulk(cdrList);
-        });
+        await().atMost(FIVE_SECONDS).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> verify(bulkInserter, times(3)).saveCdrBulk(cdrList, ProcessorType.MESSAGE_PROCESSOR));
     }
 
     @Test
@@ -121,13 +125,11 @@ class DatabaseComponentTest {
         when(appProperties.getMaxRetries()).thenReturn(2);
 
         doThrow(new DataAccessException("Persistent DB error") {})
-                .when(bulkInserter).saveCdrBulk(cdrList);
+                .when(bulkInserter).saveCdrBulk(cdrList, ProcessorType.MESSAGE_PROCESSOR);
 
-        databaseComponent.storeInDatabase(Flux.just(cdrList));
+        databaseComponent.storeInDatabase(Flux.just(cdrList), ProcessorType.MESSAGE_PROCESSOR);
 
-        await().atMost(FIVE_SECONDS).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> {
-            verify(bulkInserter, times(2)).saveCdrBulk(cdrList);
-        });
+        await().atMost(FIVE_SECONDS).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> verify(bulkInserter, times(2)).saveCdrBulk(cdrList, ProcessorType.MESSAGE_PROCESSOR));
     }
 
     @Test
@@ -144,11 +146,11 @@ class DatabaseComponentTest {
                 List.of(cdr1, cdr2),
                 List.of(cdr3, cdr4)
         );
-        databaseComponent.storeInDatabase(cdrFlux);
+        databaseComponent.storeInDatabase(cdrFlux, ProcessorType.MESSAGE_PROCESSOR);
 
         await().atMost(FIVE_SECONDS).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> {
             ArgumentCaptor<List<UtilsRecords.Cdr>> cdrCaptor = ArgumentCaptor.forClass(List.class);
-            verify(bulkInserter, times(2)).saveCdrBulk(cdrCaptor.capture());
+            verify(bulkInserter, times(2)).saveCdrBulk(cdrCaptor.capture(), eq(ProcessorType.MESSAGE_PROCESSOR));
 
             List<List<UtilsRecords.Cdr>> allBatches = cdrCaptor.getAllValues();
             assertEquals(2, allBatches.size(), "Should process exactly 2 batches");
@@ -171,11 +173,11 @@ class DatabaseComponentTest {
         List<UtilsRecords.Cdr> emptyCdrList = List.of();
         when(appProperties.getMaxRetries()).thenReturn(3);
 
-        databaseComponent.storeInDatabase(Flux.just(emptyCdrList));
+        databaseComponent.storeInDatabase(Flux.just(emptyCdrList), ProcessorType.MESSAGE_PROCESSOR);
 
         await().atMost(FIVE_SECONDS).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> {
             ArgumentCaptor<List<UtilsRecords.Cdr>> cdrCaptor = ArgumentCaptor.forClass(List.class);
-            verify(bulkInserter, times(1)).saveCdrBulk(cdrCaptor.capture());
+            verify(bulkInserter, times(1)).saveCdrBulk(cdrCaptor.capture(), eq(ProcessorType.MESSAGE_PROCESSOR));
 
             List<UtilsRecords.Cdr> capturedCdrs = cdrCaptor.getValue();
             assertTrue(capturedCdrs.isEmpty(), "Empty batch should result in empty database call");
@@ -193,13 +195,13 @@ class DatabaseComponentTest {
                 .doThrow(new DataAccessException("Lock timeout") {})
                 .doThrow(new DataAccessException("Transaction rollback") {})
                 .doNothing()
-                .when(bulkInserter).saveCdrBulk(cdrList);
+                .when(bulkInserter).saveCdrBulk(cdrList, ProcessorType.MESSAGE_PROCESSOR);
 
-        databaseComponent.storeInDatabase(Flux.just(cdrList));
+        databaseComponent.storeInDatabase(Flux.just(cdrList), ProcessorType.MESSAGE_PROCESSOR);
 
         await().atMost(FIVE_SECONDS).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> {
             ArgumentCaptor<List<UtilsRecords.Cdr>> cdrCaptor = ArgumentCaptor.forClass(List.class);
-            verify(bulkInserter, times(4)).saveCdrBulk(cdrCaptor.capture());
+            verify(bulkInserter, times(4)).saveCdrBulk(cdrCaptor.capture(), eq(ProcessorType.MESSAGE_PROCESSOR));
 
             List<List<UtilsRecords.Cdr>> allAttempts = cdrCaptor.getAllValues();
             assertEquals(4, allAttempts.size(), "Should make exactly 4 attempts");
@@ -217,11 +219,11 @@ class DatabaseComponentTest {
         List<UtilsRecords.Cdr> largeBatch = ObjectsCreator.createLargeCdrBatch(50);
         when(appProperties.getMaxRetries()).thenReturn(3);
 
-        databaseComponent.storeInDatabase(Flux.just(largeBatch));
+        databaseComponent.storeInDatabase(Flux.just(largeBatch), ProcessorType.MESSAGE_PROCESSOR);
 
         await().atMost(Duration.ofSeconds(10)).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> {
             ArgumentCaptor<List<UtilsRecords.Cdr>> cdrCaptor = ArgumentCaptor.forClass(List.class);
-            verify(bulkInserter, times(1)).saveCdrBulk(cdrCaptor.capture());
+            verify(bulkInserter, times(1)).saveCdrBulk(cdrCaptor.capture(), eq(ProcessorType.MESSAGE_PROCESSOR));
 
             List<UtilsRecords.Cdr> capturedCdrs = cdrCaptor.getValue();
             assertEquals(50, capturedCdrs.size(), "Large batch should contain exactly 50 CDRs");
@@ -244,11 +246,11 @@ class DatabaseComponentTest {
 
         when(appProperties.getMaxRetries()).thenReturn(5);
 
-        databaseComponent.storeInDatabase(Flux.just(cdrList));
+        databaseComponent.storeInDatabase(Flux.just(cdrList), ProcessorType.MESSAGE_PROCESSOR);
 
         await().atMost(FIVE_SECONDS).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> {
             ArgumentCaptor<List<UtilsRecords.Cdr>> cdrCaptor = ArgumentCaptor.forClass(List.class);
-            verify(bulkInserter, times(1)).saveCdrBulk(cdrCaptor.capture());
+            verify(bulkInserter, times(1)).saveCdrBulk(cdrCaptor.capture(), eq(ProcessorType.MESSAGE_PROCESSOR));
 
             List<UtilsRecords.Cdr> capturedCdrs = cdrCaptor.getValue();
             assertEquals(2, capturedCdrs.size(), "Should store both CDRs in single attempt");

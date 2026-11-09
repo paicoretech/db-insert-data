@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.paic.insertdata.component.DatabaseComponent;
 import org.paic.insertdata.component.LogsComponent;
 import org.paic.insertdata.component.ObjectsCreator;
+import org.paic.insertdata.util.ProcessorType;
 import reactor.core.publisher.Flux;
 
 import java.time.Duration;
@@ -56,13 +57,13 @@ class LogsDatabaseModeProcessorTest {
                 dbLatch.countDown();
             });
             return null;
-        }).when(mockDbComponent).storeInDatabase(any());
+        }).when(mockDbComponent).storeInDatabase(any(), any(ProcessorType.class));
 
         LogsDatabaseModeProcessor processor = new LogsDatabaseModeProcessor(mockDbComponent, mockLogsComponent);
         processor.processCdr(rawList);
 
         verify(mockLogsComponent, timeout(2000)).storeInLogFile(any());
-        verify(mockDbComponent,   timeout(2000)).storeInDatabase(any());
+        verify(mockDbComponent,   timeout(2000)).storeInDatabase(any(), any(ProcessorType.class));
 
         await().atMost(Duration.ofSeconds(2)).until(() -> logsLatch.getCount() == 0);
         await().atMost(Duration.ofSeconds(2)).until(() -> dbLatch.getCount() == 0);

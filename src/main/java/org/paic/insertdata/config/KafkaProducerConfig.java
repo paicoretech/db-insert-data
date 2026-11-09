@@ -32,6 +32,8 @@ public class KafkaProducerConfig {
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, appProperties.getKafkaBootstrapServers());
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(ProducerConfig.RECONNECT_BACKOFF_MS_CONFIG, appProperties.getKafkaProducerReconnectBackoffMs());
+        configProps.put(ProducerConfig.RECONNECT_BACKOFF_MAX_MS_CONFIG, appProperties.getKafkaProducerReconnectBackoffMaxMs());
         return new DefaultKafkaProducerFactory<>(configProps);
     }
 
@@ -48,6 +50,10 @@ public class KafkaProducerConfig {
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.RECONNECT_BACKOFF_MS_CONFIG, appProperties.getKafkaConsumerReconnectBackoffMs());
+        props.put(ConsumerConfig.RECONNECT_BACKOFF_MAX_MS_CONFIG, appProperties.getKafkaConsumerReconnectBackoffMaxMs());
+        props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, appProperties.getKafkaConsumerSessionTimeoutMs());
+        props.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, appProperties.getKafkaConsumerHeartbeatIntervalMs());
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
